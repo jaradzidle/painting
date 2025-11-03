@@ -1,0 +1,148 @@
+import pygame
+from SaveLoadSystem import SaveLoadSystem
+import os
+
+pygame.init()
+
+# --- Setup ---
+fps = 120
+timer = pygame.time.Clock()
+width = 800
+height = 600
+active_size = 10
+active_color = 'black'
+screen = pygame.display.set_mode([width, height])
+pygame.display.set_caption("Paint")
+
+# --- Save system ---
+saveloadsystem = SaveLoadSystem(".save", "save_data")
+painting = saveloadsystem.load_game_data(["painting"], [[]])
+
+# --- Draw top menu (brushes and colors) ---
+def draw_menu(size, color):
+    pygame.draw.rect(screen, 'gray', [0, 0, width, 70])
+    pygame.draw.line(screen, 'black', (0, 70), (width, 70), 3)
+
+    # Brushes
+    xl_brush = pygame.draw.rect(screen, 'black', [10, 10, 50, 50])
+    pygame.draw.circle(screen, 'white', (35, 35), 20)
+    l_brush = pygame.draw.rect(screen, 'black', [70, 10, 50, 50])
+    pygame.draw.circle(screen, 'white', (95, 35), 15)
+    m_brush = pygame.draw.rect(screen, 'black', [130, 10, 50, 50])
+    pygame.draw.circle(screen, 'white', (155, 35), 10)
+    s_brush = pygame.draw.rect(screen, 'black', [190, 10, 50, 50])
+    pygame.draw.circle(screen, 'white', (215, 35), 5)
+    brush_list = [xl_brush, l_brush, m_brush, s_brush]
+
+    # Highlight active brush
+    if size == 20:
+        pygame.draw.rect(screen, 'green', [10, 10, 50, 50], 3)
+    elif size == 15:
+        pygame.draw.rect(screen, 'green', [70, 10, 50, 50], 3)
+    elif size == 10:
+        pygame.draw.rect(screen, 'green', [130, 10, 50, 50], 3)
+    elif size == 5:
+        pygame.draw.rect(screen, 'green', [190, 10, 50, 50], 3)
+
+    # Active color indicator
+    pygame.draw.circle(screen, color, (400, 35), 30)
+    pygame.draw.circle(screen, 'dark gray', (400, 35), 30, 3)
+
+    # Color palette
+    blue = pygame.draw.rect(screen, (0, 0, 255), [width - 35, 10, 25, 25])
+    red = pygame.draw.rect(screen, (255, 0, 0), [width - 35, 35, 25, 25])
+    green = pygame.draw.rect(screen, (0, 255, 0), [width - 60, 10, 25, 25])
+    yellow = pygame.draw.rect(screen, (255, 255, 0), [width - 60, 35, 25, 25])
+    teal = pygame.draw.rect(screen, (0, 255, 255), [width - 85, 10, 25, 25])
+    purple = pygame.draw.rect(screen, (255, 0, 255), [width - 85, 35, 25, 25])
+    white = pygame.draw.rect(screen, (255, 255, 255), [width - 110, 10, 25, 25])
+    black = pygame.draw.rect(screen, (0, 0, 0), [width - 110, 35, 25, 25])
+    color_rect = [blue, red, green, yellow, teal, purple, white, black]
+
+    rgb_list = [(0, 0, 255), (255, 0, 0), (0, 255, 0), (255, 255, 0),
+                (0, 255, 255), (255, 0, 255), (255, 255, 255), (0, 0, 0)]
+    return brush_list, color_rect, rgb_list
+
+# --- Draw bottom menu (save, load, clear) ---
+def draw_bottom_menu():
+    pygame.draw.rect(screen, 'gray', [0, height - 60, width, 60])
+    pygame.draw.line(screen, 'black', (0, height - 60), (width, height - 60), 3)
+    font = pygame.font.SysFont('arial', 24)
+
+    # Buttons
+    save_btn = pygame.draw.rect(screen, 'lightblue', [width//2 - 180, height - 50, 100, 40])
+    load_btn = pygame.draw.rect(screen, 'lightgreen', [width//2 - 50, height - 50, 100, 40])
+    clear_btn = pygame.draw.rect(screen, 'lightcoral', [width//2 + 80, height - 50, 100, 40])
+
+    # Labels
+    save_text = font.render("Save", True, 'black')
+    load_text = font.render("Load", True, 'black')
+    clear_text = font.render("Clear", True, 'black')
+
+    screen.blit(save_text, (width//2 - 155, height - 45))
+    screen.blit(load_text, (width//2 - 25, height - 45))
+    screen.blit(clear_text, (width//2 + 105, height - 45))
+
+    return save_btn, load_btn, clear_btn
+
+# --- Draw painting ---
+def draw_painting(paints):
+    for p in paints:
+        pygame.draw.circle(screen, p[0], p[1], p[2])
+
+# --- Main Loop ---
+run = True
+while run:
+    timer.tick(fps)
+    screen.fill('white')
+
+    mouse = pygame.mouse.get_pos()
+    left_click = pygame.mouse.get_pressed()[0]
+
+    # Only draw within the paintable area
+    if left_click and 70 < mouse[1] < height - 60:
+        painting.append((active_color, mouse, active_size))
+
+    draw_painting(painting)
+
+    # Brush preview
+    if 70 < mouse[1] < height - 60:
+        pygame.draw.circle(screen, active_color, mouse, active_size)
+
+    brushes, colors, rgbs = draw_menu(active_size, active_color)
+    save_button, load_button, clear_button = draw_bottom_menu()
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            saveloadsystem.save_game_data([painting], ["painting"])
+            run = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Brush size selection
+            for i in range(len(brushes)):
+                if brushes[i].collidepoint(event.pos):
+                    active_size = 20 - (i * 5)
+
+            # Color selection
+            for i in range(len(colors)):
+                if colors[i].collidepoint(event.pos):
+                    active_color = rgbs[i]
+
+            # Save button
+            if save_button.collidepoint(event.pos):
+                saveloadsystem.save_game_data([painting], ["painting"])
+                print("✅ Painting saved!")
+
+            # Load button
+            if load_button.collidepoint(event.pos):
+                painting = saveloadsystem.load_game_data(["painting"], [[]])
+                print("🎨 Painting loaded!")
+
+            # Clear button
+            if clear_button.collidepoint(event.pos):
+                painting = []
+                print("🧹 Canvas cleared!")
+
+    pygame.display.flip()
+
+pygame.quit()
